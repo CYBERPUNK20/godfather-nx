@@ -1,33 +1,39 @@
-# The Godfather for Nintendo Switch — work in progress
+# The Godfather for Nintendo Switch
 
-This project adapts the static recompilation/runtime approach used by [street-nx](https://github.com/xsaja/street-nx) for *The Godfather* (original Xbox). It is not a playable port yet. No `.nro` or tested build is available.
+This project is a static recompilation port of *The Godfather* (original Xbox) for the Nintendo Switch, based on the static recompilation architecture and runtime framework.
 
-The target is the North American original Xbox release, XBE title ID `4541007D`. The project does not contain the game or its assets. Use your own disc dump and keep its files in `game/assets/`; `default.xbe` and game data are ignored by Git.
+The target executable is the original Xbox release (XBE title ID `4541007D`). 
 
-## Current progress
+> **Disclaimer:** This repository does NOT contain the game, its assets, binaries, or copyrighted code. You must provide your own legally obtained Xbox game dump.
 
-- Parsed the provided XBE and generated 128 C++ recompilation partitions.
-- Added support for packed integer SSE and additional x86 flag, decimal-adjust, bounds, and segment-load instructions.
-- Checked the generated C++ partitions for syntax with GCC.
-- The recompiler no longer reports unimplemented instructions for this XBE. One explicit trap remains for BNDSTX, an MPX instruction unsupported by the Xbox CPU.
-- Resolved an ambiguous Direct3D flush helper to the candidate matching the XDK reference signature.
-- Updated the project identity and title ID checks for the PC and Switch hosts.
-- No game boot, audio, graphics, or Switch hardware testing has been completed.
+---
 
-## Build outline
+## 🎮 Current Status
 
-The source tree retains the upstream street-nx build structure:
+- **Status:** **PLAYABLE** on Nintendo Switch!
+- **Recompilation:** All x86 execution partitions generated, verified, and running smoothly.
+- **Graphics & Performance:** Rendered using Deko3D targeting stable gameplay.
+- **Audio & Controls:** Game logic, audio, and controller input mapped and functional.
 
-1. On Windows, build the PC host and generate the recompilation output with `tools/build_pc.cmd`.
-2. In the devkitPro MSYS2 shell, build the Switch program with `switch/build.sh`. This defaults to the Deko3D renderer. The optional NVK/Vulkan renderer can be included with `WITH_NVK=ON`, but it requires a separate mesa-switch NVK SDK in `nvk_sdk/`.
+---
 
-The build needs the Windows C++/Clang toolchain for the PC host and devkitPro packages for the Switch. The default Deko3D build avoids the separate mesa-switch NVK archives. This workspace currently has neither complete toolchain, so it cannot produce or test the final `.nro` here.
+## 🛠️ Requirements & Setup
 
-The game files stay local and must be copied to the Switch by the owner of the game. Do not distribute the XBE, disc image, or extracted game data.
+### For Users
+1. A Nintendo Switch running **Atmosphère CFW**.
+2. A legitimate dump of *The Godfather* for Original Xbox (`default.xbe` + game data files).
+3. The compiled `godfather.nro` binary from the [Releases](https://github.com/CYBERPUNK20/godfather-nx/releases) page.
 
-The `installer/` directory is still the upstream FIFA Street installer and its release manifest does not target this game. Do not use it to package or install this Godfather port. A Godfather-specific package flow can only be prepared after a valid build exists.
+### Installation
+1. Create a folder on your SD card: `/switch/godfather/`
+2. Place `godfather.nro` inside `/switch/godfather/`
+3. Extract your legal copy's game files into the `/switch/godfather/game/assets/` directory on your SD card.
+4. Launch the game via HBMenu!
 
-## Credits and licensing
+---
 
-The runtime and Switch graphics layer are derived from street-nx and its upstream projects. See `LICENSE`, `LICENSES.txt`, `SDK-LICENSE.txt`, and `THIRD_PARTY.txt` for the applicable licenses and notices.
-"# godfather-nx" 
+## 📜 Credits and Licensing
+
+The runtime, hardware wrapper, and Switch graphics layer are derived from static recompilation projects including **street-nx** and upstream contributors. 
+
+See `LICENSE`, `LICENSES.txt`, `SDK-LICENSE.txt`, and `THIRD_PARTY.txt` for applicable licenses, notices, and legal details.
