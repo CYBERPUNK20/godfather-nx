@@ -1,4 +1,4 @@
-![The Godfather Switch Banner](banner.jpg)
+![The Godfather Banner](banner.jpg)
 
 # The Godfather for Nintendo Switch
 
@@ -8,6 +8,8 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 
 > **Disclaimer:** This repository does NOT contain the game, its assets, binaries, or copyrighted code. You must provide your own legally obtained Xbox game dump.
 
+---
+
 ## 🎮 Current Status & Performance
 
 * **Status:** **PLAYABLE** on Nintendo Switch!
@@ -16,6 +18,20 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 * **Audio & Controls:** Game logic, audio, and controller input mapped and functional.
 * **Tested Clocks (Handheld):** Tested on stock handheld clocks (**CPU 1020 MHz**, **GPU 307 MHz**, **RAM 1333 MHz**).
 * **Overclock Recommendation:** While functional at stock frequencies, enabling a minor CPU/GPU/RAM overclock (e.g., via Sys-CLK) is recommended for improved framerate stability during heavy scenes.
+
+---
+
+## 🕹️ Controls
+
+| Switch | Xbox |
+| :--- | :--- |
+| **B / A / Y / X** | **A / B / X / Y** *(by position: the button the game shows sits where you press)* |
+| **L / R** | **left / right trigger** |
+| **ZL / ZR** | **white / black** |
+| **+ / -** | **Start / Back** |
+| **sticks, stick clicks** | **sticks, stick clicks** |
+
+---
 
 ## 🛠️ Requirements & Setup
 
@@ -35,6 +51,8 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 3. **Launch Method:**
    * Start it in **Title Mode** (hold **R** while starting any game and pick it in hbmenu, or use Sphaira / a forwarder).
    * *Note:* **Applet mode** (opening hbmenu via the Album) does **not** have enough memory and will fail/warn accordingly.
+
+---
 
 ## 📜 Credits and Licensing
 
