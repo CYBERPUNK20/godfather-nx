@@ -1,3 +1,5 @@
+![The Godfather Switch Banner](banner.jpg)
+
 # The Godfather for Nintendo Switch
 
 This project is a static recompilation port of *The Godfather* (original Xbox) for the Nintendo Switch, based on the static recompilation architecture and runtime framework.
@@ -12,7 +14,7 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 * **Recompilation:** All x86 execution partitions generated, verified, and running smoothly.
 * **Graphics & Performance:** Rendered using Deko3D targeting stable gameplay.
 * **Audio & Controls:** Game logic, audio, and controller input mapped and functional.
-* **Tested Clocks (Handheld):** Tested on stock handheld clocks (**CPU 1020 MHz**, **GPU 307 MHz**, **RAM 1333 MHz**). 
+* **Tested Clocks (Handheld):** Tested on stock handheld clocks (**CPU 1020 MHz**, **GPU 307 MHz**, **RAM 1333 MHz**).
 * **Overclock Recommendation:** While functional at stock frequencies, enabling a minor CPU/GPU/RAM overclock (e.g., via Sys-CLK) is recommended for improved framerate stability during heavy scenes.
 
 ## 🛠️ Requirements & Setup
