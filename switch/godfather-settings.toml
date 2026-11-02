@@ -1,0 +1,74 @@
+# The Godfather for Switch - settings (this file goes next to godfather.nro, in sdmc:/switch/godfather-nx/)
+# If you delete it, the game uses these same defaults.
+# The Switch has no display_mode, width or height: the resolution is the screen's
+# (1280x720 handheld, 1920x1080 docked).
+
+# Internal resolution in % of the screen's height (100 = native). Lower it (75, say) if the game is slow.
+render_percent = 100
+
+# Frame rate cap (0 = none). This setting has not yet been tuned for this game.
+# The log writes the measured frame rate every 10 s ("perf:" lines).
+fps_cap = 60
+
+# Renderer: "deko3d" (the Switch's own graphics API; shaders compile on first launch) or "vulkan" (NVK).
+renderer = "deko3d"
+
+# deko3d only: true adds SMAA anti-aliasing. Performance has not yet been measured for this game.
+smaa = false
+
+# deko3d only: selects the memory type used for uploaded draw data. If graphics are corrupted, try false.
+deko3d_cached_upload = true
+
+# deko3d only: checks textures that may have changed every N frames; use 1 if a texture appears stale.
+texture_check_frames = 8
+
+# true tracks render state changes. If colors, transparency or positions look wrong, try false.
+state_tracking = true
+
+# For development: true records every millisecond which function the game is running, into logs/prof.bin.
+# It costs some performance: leave it false to play.
+profile = false
+
+# "vsync" paces frames with the display. "timer" uses the runtime's frame timer.
+frame_pacing = "vsync"
+
+# Vertical sync (no tearing).
+vsync = true
+
+# false keeps the Xbox's standard display mode. true advertises a 720p HDTV display to the game.
+xbox_720p = false
+
+# The console language the game starts in (as the Xbox dashboard's): "auto" follows the Switch's system language;
+# or "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh" (the game itself may only have some of them).
+language = "auto"
+
+# Anisotropic filtering: 0 uses the game's request; higher values may sharpen angled textures.
+anisotropic_filtering = 2
+
+# A/B/X/Y: false (default) = by position, as on an Xbox controller: bottom B = Xbox A, right A = Xbox B,
+# left Y = Xbox X, top X = Xbox Y (the button the game shows sits where you press). true = by letter (A = Xbox A).
+# L and R are the Xbox L and R triggers; ZL and ZR are the Xbox controller's white and black buttons.
+buttons_by_name = false
+
+# Clocks in MHz (0 = the console's own, untouched). Applied at start and when docking or undocking, and the console's
+# are restored on exit. Caps: CPU 1785, GPU 921, memory 1600 (the official maximums).
+# Stock: CPU 1020; GPU 307-460 handheld and 768 docked; memory 1331 handheld and 1600 docked.
+# Higher clocks use more battery and run hotter; leave these at 0 unless testing shows a need.
+# If you use Horizon OC or sys-clk, leave these at 0 and set the clocks in its profile for this game.
+cpu_mhz = 0
+gpu_mhz = 0
+mem_mhz = 0
+
+# Experimental draw-data optimization. Turn off if the game has rendering errors.
+draw_copy = true
+
+# Experimental constant reuse optimization. Turn off if the game has rendering errors.
+reuse_constants = true
+
+# Performance (experimental): microseconds the game thread and the render thread wait awake before sleeping.
+# 0 = sleep at once. Hardly needed with draw_copy = true.
+render_spin_us = 0
+
+# true (default): shows the FPS and the resolution in Status Monitor Overlay / Horizon OC Monitor, and follows the
+# handheld/docked mode picked in ReverseNX-RT. Needs SaltyNX 0.7.0 or later; without SaltyNX it does nothing.
+saltynx = true
