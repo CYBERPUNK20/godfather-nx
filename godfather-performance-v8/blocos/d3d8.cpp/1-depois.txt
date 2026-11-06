@@ -1,1 +1,0 @@
-        if (kRenderThread) g_backend = gpu::CreateThreadedBackend(std::move(g_backend), &g_state);

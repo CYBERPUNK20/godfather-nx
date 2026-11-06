@@ -1,3 +1,0 @@
-        const FormatInfo& format = Format(d.format);
-        d.linear = !format.swizzled && !format.compressed;
-        d.pitch = d.width * format.bits / 8;

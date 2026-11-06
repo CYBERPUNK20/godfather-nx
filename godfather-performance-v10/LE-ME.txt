@@ -1,8 +1,0 @@
-Godfather NX | Desempenho v10 | Sobre a v9
-Extrai a pasta godfather-performance-v10 para C:\GodfatherNX. Em MSYS2:
-cd /c/GodfatherNX
-bash godfather-performance-v10/aplicar.sh && bash switch/build.sh
-Copia build-switch/godfather.nro para o cartao. Usa o mesmo save e definicoes (80%, profile=false, state_tracking=false).
-Testa a explosao de perto e continua a jogar pelo menos 20 segundos antes de sair. Compara tambem fumo, farois, personagens e HUD. A linha "skipped draw constants" mede a reducao das copias em KiB/frame.
-Para repor a v9:
-bash godfather-performance-v10/reverter.sh && bash switch/build.sh

@@ -1,4 +1,0 @@
-Extrai esta pasta para C:\GodfatherNX por cima do projeto com a v8. No MSYS2:
-cd /c/GodfatherNX
-bash godfather-performance-v9/compilar-rc.sh
-O script compila o NRO e cria dist/godfather-nx-v9-rc1.zip para testar antes de publicar. Usa o NRO novo na tua consola. Para instalar apenas as fontes, usa aplicar.sh. Para desfazer, usa reverter.sh e volta a compilar.

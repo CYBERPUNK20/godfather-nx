@@ -1,4 +1,0 @@
-    // DRAWBANK v7: stock fixed shaders and the stock fragment shader use b1.
-    // Programmable vertex shaders and extension hooks retain the full b0 bank.
-    const bool needs_vsc = sh.prog || g_shader_hooks != nullptr;
-    uint32_t need = (needs_vsc ? 2u : 1u) * kUboRange + 1024 + a.index_count * 4 + 16;

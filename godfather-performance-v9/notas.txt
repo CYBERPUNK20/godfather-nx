@@ -1,4 +1,0 @@
-The Godfather NX | v9-rc1 | Nintendo Switch
-Candidata para teste em consola. Conserva as melhorias da v8 e otimiza tres rotinas de processamento de imagem usadas na introducao.
-Para atualizar uma instalacao v8, fecha o jogo e substitui apenas switch/godfather-nx/godfather.nro no cartao SD. Usa os teus ficheiros do disco na pasta game.
-Para comparar, testa em modo portatil com render_percent = 80, profile = false, state_tracking = false. Verifica o logotipo da Paramount, som e sincronizacao ate ao menu. Carrega o mesmo save e testa policia, fogo e explosoes.

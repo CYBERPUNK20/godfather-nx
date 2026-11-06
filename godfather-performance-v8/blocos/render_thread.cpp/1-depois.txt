@@ -1,2 +1,0 @@
-    Threaded(std::unique_ptr<Backend> inner, const State* marked_simple_source)
-        : inner_(std::move(inner)), ranges_(StateRanges()), marked_simple_source_(marked_simple_source) {

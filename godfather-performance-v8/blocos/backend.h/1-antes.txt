@@ -1,1 +1,0 @@
-std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner);

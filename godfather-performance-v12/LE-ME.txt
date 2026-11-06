@@ -1,7 +1,0 @@
-Godfather NX | Desempenho v12 | Instalar sobre a v11
-Extrai para C:\GodfatherNX e corre no MSYS2:
-cd /c/GodfatherNX
-bash godfather-performance-v12/aplicar.sh && bash switch/build.sh
-Copia build-switch/godfather.nro para o cartao. Definicoes do teste: 80%, profile=false. Repete a perseguicao com policia, personagens e explosoes. Sai normalmente e envia o godfather.log.
-Para recuperar a v11:
-bash godfather-performance-v12/reverter.sh && bash switch/build.sh

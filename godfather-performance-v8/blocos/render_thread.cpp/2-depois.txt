@@ -1,4 +1,0 @@
-        const bool track = g_track_state;
-        // SIMPLEBANK v8: a source change requires a full snapshot of the simple bank.
-        const bool use_simple_marks = last_was_marked_source_ && &s == marked_simple_source_;
-        last_was_marked_source_ = &s == marked_simple_source_;

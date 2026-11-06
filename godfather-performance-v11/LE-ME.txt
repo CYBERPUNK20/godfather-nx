@@ -1,8 +1,0 @@
-Godfather NX | v11 | Sobre a v10
-No MSYS2, depois de extrair a pasta para C:\GodfatherNX:
-cd /c/GodfatherNX
-bash godfather-performance-v11/aplicar.sh && bash switch/build.sh
-Copia build-switch/godfather.nro para o SD. Para avaliar o combate, mantem a resolucao a 80% e profile=false. Observa a explosao e continua na rua durante cerca de 30 segundos antes de sair. Se houver uma pausa, indica se foi na explosao ou ao abrir HOME/sair.
-Esta alteracao do CPU atua na pesquisa do formato e na leitura de texturas Xbox com pixéis intercalados. O instalador modifica sdk/runtime/gpu/texture.cpp.
-Repor a v10:
-bash godfather-performance-v11/reverter.sh && bash switch/build.sh

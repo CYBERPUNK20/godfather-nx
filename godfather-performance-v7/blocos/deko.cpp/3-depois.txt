@@ -1,3 +1,0 @@
-    Upload vc{};
-    if (needs_vsc) vc = ConstantsReused(last_vsc_, s.vsc.data(), sizeof(s.vsc));
-    else ++fixed_bank_skips_;

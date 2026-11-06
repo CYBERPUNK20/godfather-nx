@@ -1,1 +1,0 @@
-    if (logx::kVerbose && create_trace_count++ < 128) {

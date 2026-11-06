@@ -1,1 +1,0 @@
-    uint64_t const_reused_ = 0, const_uploaded_ = 0, upload_bytes_ = 0;

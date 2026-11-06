@@ -1,1 +1,0 @@
-    Upload vc = ConstantsReused(last_vsc_, s.vsc.data(), sizeof(s.vsc));

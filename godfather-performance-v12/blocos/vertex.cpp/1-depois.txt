@@ -1,3 +1,0 @@
-void ResetAssembled(Assembled& out) {
-    // VERTPREP v12: converted draws overwrite every float. Keep the old size
-    // until resize so only new elements are initialized. Raw and empty paths clear it.

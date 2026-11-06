@@ -1,1 +1,0 @@
-        const bool track = g_track_state;

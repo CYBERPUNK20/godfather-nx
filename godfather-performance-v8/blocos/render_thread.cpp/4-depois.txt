@@ -1,3 +1,0 @@
-    std::vector<Range> ranges_;
-    const State* marked_simple_source_;
-    bool last_was_marked_source_ = false;

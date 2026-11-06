@@ -1,3 +1,0 @@
-std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner, const State* marked_simple_source) {
-    return std::make_unique<Threaded>(std::move(inner), marked_simple_source);
-}

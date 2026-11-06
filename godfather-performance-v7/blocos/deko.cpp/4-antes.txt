@@ -1,1 +1,0 @@
-        dkCmdBufBindUniformBuffer(cmd, st, 0, vc.gpu, kUboRange);

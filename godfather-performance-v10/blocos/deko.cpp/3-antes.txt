@@ -1,1 +1,0 @@
-    fixed_bank_skips_ = 0;

@@ -1,1 +1,0 @@
-void TraceDrawCaller(X86Context& ctx, const char* api, uint32_t prim, uint32_t count, uint32_t stride, uint32_t parent_offset) {
