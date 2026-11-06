@@ -451,7 +451,7 @@ HLE_STDCALL(Direct3D_CreateDevice, 6) {
     if (!g_backend) {
         g_backend = gpu::CreateBackend();
         if (!g_backend->Init(w, h)) LOGE("d3d: renderer init failed");
-        if (kRenderThread) g_backend = gpu::CreateThreadedBackend(std::move(g_backend));
+        if (kRenderThread) g_backend = gpu::CreateThreadedBackend(std::move(g_backend), &g_state);
     }
     g_state = gpu::State{};
     g_program_slots = {};
@@ -1055,7 +1055,7 @@ HLE_STDCALL(D3DDevice_SetIndices, 2) {
 
 HLE_STDCALL(D3DDevice_CreateVertexShader, 4) {
     std::lock_guard<std::recursive_mutex> lock(g_lock);
-    uint32_t create_return = R32(ctx.esp);
+    const uint32_t create_return = logx::kVerbose ? R32(ctx.esp) : 0;
     uint32_t decl = a[0], func = a[1], out = a[2];
     auto vs = std::make_shared<gpu::VertexShader>();
     if (decl) {
@@ -1077,7 +1077,7 @@ HLE_STDCALL(D3DDevice_CreateVertexShader, 4) {
     g_vs[vs->handle] = vs;
     W32(out, vs->handle);
     static unsigned create_trace_count = 0;
-    if (create_trace_count++ < 128) {
+    if (logx::kVerbose && create_trace_count++ < 128) {
         uint32_t hdr = func ? R32(func) : 0;
         LOGR("VSCREATE ret=%08X handle=%08X decl=%08X func=%08X out=%08X usage=%08X hdr=%08X type=%04X instructions=%u",
              create_return, vs->handle, decl, func, out, a[3], hdr, hdr & 0xFFFF, hdr >> 16);
@@ -1121,23 +1121,26 @@ HLE_STDCALL(D3DDevice_SetVertexShader, 1) {
     Walk(Dev(kDevPush)); // Queued vertices retain the declaration used when submitted.
     g_program_decl.reset();
     uint32_t h = a[0];
-    static const auto shader_trace_start = std::chrono::steady_clock::now();
-    static bool target_shader_first_seen = false;
-    static unsigned target_shader_late_trace_count = 0;
-    const auto shader_trace_elapsed = std::chrono::steady_clock::now() - shader_trace_start;
-    auto trace_it = g_vs.find(h);
-    if (h == 0xB0102291 && !target_shader_first_seen) {
-        target_shader_first_seen = true;
-        LOGR("VSSELECT first ret=%08X handle=%08X known=%u instructions=%zu type=%04X",
-             R32(ctx.esp), h, unsigned(trace_it != g_vs.end()),
-             trace_it == g_vs.end() ? size_t(0) : trace_it->second->program.size() / 4,
-             trace_it == g_vs.end() ? 0 : trace_it->second->program_type);
-    }
-    if (h == 0xB0102291 && shader_trace_elapsed >= std::chrono::seconds(40) && target_shader_late_trace_count++ < 128) {
-        LOGR("VSSELECT late ret=%08X handle=%08X known=%u instructions=%zu type=%04X",
-             R32(ctx.esp), h, unsigned(trace_it != g_vs.end()),
-             trace_it == g_vs.end() ? size_t(0) : trace_it->second->program.size() / 4,
-             trace_it == g_vs.end() ? 0 : trace_it->second->program_type);
+    // QUIETDRAW v6: legacy mesh probes run only in verbose builds.
+    if constexpr (logx::kVerbose) {
+        static const auto shader_trace_start = std::chrono::steady_clock::now();
+        static bool target_shader_first_seen = false;
+        static unsigned target_shader_late_trace_count = 0;
+        const auto shader_trace_elapsed = std::chrono::steady_clock::now() - shader_trace_start;
+        auto trace_it = g_vs.find(h);
+        if (h == 0xB0102291 && !target_shader_first_seen) {
+            target_shader_first_seen = true;
+            LOGR("VSSELECT first ret=%08X handle=%08X known=%u instructions=%zu type=%04X",
+                 R32(ctx.esp), h, unsigned(trace_it != g_vs.end()),
+                 trace_it == g_vs.end() ? size_t(0) : trace_it->second->program.size() / 4,
+                 trace_it == g_vs.end() ? 0 : trace_it->second->program_type);
+        }
+        if (h == 0xB0102291 && shader_trace_elapsed >= std::chrono::seconds(40) && target_shader_late_trace_count++ < 128) {
+            LOGR("VSSELECT late ret=%08X handle=%08X known=%u instructions=%zu type=%04X",
+                 R32(ctx.esp), h, unsigned(trace_it != g_vs.end()),
+                 trace_it == g_vs.end() ? size_t(0) : trace_it->second->program.size() / 4,
+                 trace_it == g_vs.end() ? 0 : trace_it->second->program_type);
+        }
     }
     // STREET native SetVertexShader at 0053A134 stores the handle at device+0798.
     XDK_REQUIRE("d3d", XDK_KEY(CDevice_VertexShader));
@@ -1161,6 +1164,7 @@ HLE_STDCALL(D3DDevice_SetVertexShader, 1) {
 
 namespace {
 void TraceVscWrite(X86Context& ctx, const char* api, uint32_t reg, uint32_t src, uint32_t count) {
+    if constexpr (!logx::kVerbose) return;
     const int32_t signed_reg = static_cast<int32_t>(reg);
     const bool logical_high = signed_reg <= -96 && signed_reg >= -99;
     const bool physical_high = reg <= 99 && uint64_t(reg) + count > 96;
@@ -1333,6 +1337,7 @@ HLE_STDCALL(D3DDevice_SetPixelShaderConstant, 3) {
 // Diagnostic only: log the first draw seen at each game call site and vertex shader.
 namespace {
 void TraceDrawCaller(X86Context& ctx, const char* api, uint32_t prim, uint32_t count, uint32_t stride, uint32_t parent_offset) {
+    if constexpr (!logx::kVerbose) return;
     static uint32_t logged = 0;
     const auto& s = State();
     uint32_t wrapper = R32(ctx.esp);
@@ -1689,7 +1694,7 @@ HLE_STDCALL(D3DDevice_EndPush, 1) {
             uint32_t m = head & 0x40000000 ? method : method + i * 4, v = R32(p);
             ApplyVisibilityMethod(m, v);
             if (ApplyVertexProgramMethod(m, v)) continue;
-            if (m >= 0x1E80 && m <= 0x1E90) {
+            if (logx::kVerbose && m >= 0x1E80 && m <= 0x1E90) {
                 static unsigned transform_trace_count = 0;
                 if (transform_trace_count++ < 128)
                     LOGR("PUSHVS method=%04X value=%08X command=%u/%u", m, v, i, n);

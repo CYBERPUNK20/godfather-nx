@@ -1,0 +1,2 @@
+void ResetAssembled(Assembled& out) {
+    out.vertices.clear();

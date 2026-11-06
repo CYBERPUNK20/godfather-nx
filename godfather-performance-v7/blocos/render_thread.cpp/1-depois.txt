@@ -1,0 +1,15 @@
+            for (const Range& r : ranges_) {
+                size_t off = r.off, end = r.off + r.len;
+                // DRAWBANK v7: compare groups first; serialize changed data in the original 64-byte blocks.
+                for (; end - off >= 512; off += 512) {
+                    if (std::memcmp(sent + off, now + off, 512) == 0) continue;
+                    for (size_t b = off; b < off + 512; b += 64)
+                        if (!Same(sent + b, now + b, 64)) DeltaChanged(b, now + b, 64);
+                }
+                for (; off + 64 <= end; off += 64)
+                    if (!Same(sent + off, now + off, 64))
+                        DeltaChanged(off, now + off, 64);
+                if (off < end && !Same(sent + off, now + off, end - off))
+                    DeltaChanged(off, now + off, end - off);
+            }
+        }

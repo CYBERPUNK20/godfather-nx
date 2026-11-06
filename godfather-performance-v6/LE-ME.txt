@@ -1,0 +1,10 @@
+The Godfather NX | Desempenho v6 | Aplicar sobre o projeto v5
+Extrai esta pasta para C:\GodfatherNX. No MSYS2:
+cd /c/GodfatherNX
+bash godfather-performance-v6/aplicar.sh && bash switch/build.sh
+Copia o novo godfather.nro para a pasta habitual do jogo no SD.
+Mantem o mesmo TOML e a cache para comparar com a v5.
+O build Release normal dispensa as sondas antigas de personagens. Os relatorios perf, os erros e a captura manual de frames continuam disponiveis. Para uma compilacao com diagnostico detalhado, usa VERBOSE=ON bash switch/build.sh.
+Para testar, carrega o mesmo save, percorre a mesma rua e repete a perseguicao e a explosao durante cerca de tres minutos. Guarda o godfather.log.
+Para voltar a v5, a partir da mesma pasta:
+bash godfather-performance-v6/reverter.sh && bash switch/build.sh

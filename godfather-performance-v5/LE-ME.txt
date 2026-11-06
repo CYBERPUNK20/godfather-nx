@@ -1,0 +1,99 @@
+GodfatherNX - desempenho v5 (DIRECTSTRIP)
+
+Objetivo: passar a montagem de sequencias de linhas/triangulos para
+a GPU, evitando a expansao da sequencia em listas de indices no CPU.
+Esta etapa deve ser instalada por cima da v4 e preserva as v1-v4.
+
+INSTALAR NO MSYS2
+1. Extrai a pasta godfather-performance-v5 para C:\GodfatherNX.
+2. Executa:
+   cd /c/GodfatherNX
+   bash godfather-performance-v5/aplicar.sh && bash switch/build.sh
+3. Apenas depois de compilar com sucesso, copia
+   build-switch/godfather.nro para a pasta do jogo na Switch.
+4. Mantem o TOML atual: profile=false, render_percent=80 e restantes
+   opcoes. Nao atives XBE_RAW_VERTICES, state_tracking, reuse_constants
+   ou deko3d_cached_upload para este teste.
+5. Repete o mesmo save, percurso, policia e carros a explodir.
+   Confirma personagens, sombras, menus, fogo e explosoes.
+   Sai normalmente e envia os novos godfather.log e stderr.log.
+
+DIVISAO CPU/GPU VERIFICADA NO CODIGO
+- CPU: executa o codigo recompilado do jogo, prepara o estado grafico,
+  copia os dados que o jogo pode reutilizar e converte os formatos dos
+  vertices para float4. Essa conversao permanece ativa nesta etapa.
+- GPU: executa os shaders de vertices e de pixeis e desenha a imagem.
+  VertexProgramHlsl gera codigo de shader; nao executa por si so os
+  calculos de animacao de cada vertice no CPU.
+- Trabalho transferivel: a expansao das sequencias em listas. A v4
+  so tratava listas de pontos, linhas e triangulos. A v5 acrescenta
+  line strips e triangle strips, usando DrawNative e os comandos ja
+  implementados no backend deko3d.
+- Nao foi identificada evidencia de trabalho de logica do jogo a ser
+  executado indevidamente na GPU. Os logs nao medem todos os custos
+  individualmente nem permitem determinar a utilizacao total do CPU.
+
+O QUE MUDA
+Apenas AssembleConverted em sdk/runtime/gpu/vertex.cpp.
+Os vertices convertidos e os shaders ficam mantidos. Nos casos
+compativeis, a GPU recebe a sequencia original e monta as primitivas.
+Com indices densos, usa os indices de 16 bits e o deslocamento de base;
+com vertices ja na ordem de desenho, usa um comando sem indices.
+Flat shading (cor por face) permanece no caminho anterior, porque
+o vertice que fornece a cor pode diferir entre uma strip nativa e a
+lista expandida. Fans, quads e polygons tambem ficam como estavam.
+Nao altera clocks, resolucao, efeitos ou limite de FPS.
+
+NOVOS LOGS: 20261105-203231
+Build 20:28, profile=false, render_percent=80; saida normal Exit(0).
+Os dois ficheiros enviados tem conteudo identico.
+As janelas de jogo registadas entre aproximadamente 62 e 142 segundos
+ficaram entre 29,4 e 30,4 FPS. A ultima tinha 586 desenhos/fotograma;
+557 ainda reconstruiram indices. A v4 esta a ser exercitada, mas
+atinge uma pequena parte dos desenhos nesta captura.
+Na ultima janela: montagem 4,53 ms; upload 3,00 ms; thread de
+renderizacao 18,81 ms; GPU 21,85 ms; espera pelo proximo slot 4,21 ms.
+Os tempos incluem etapas que se sobrepoem e nao devem ser somados.
+O teste anterior chegou a 987 desenhos/fotograma; nao sao cargas
+equivalentes, pelo que nao e possivel atribuir toda a diferenca de
+FPS a v4. A reserva inicial de 4 MiB falhou e a de 2 MiB funcionou.
+
+VALIDACAO
+- Compilacao C++20 das unidades vertex.cpp anterior e nova no host,
+  com -Wall -Wextra -Werror.
+- AddressSanitizer/UndefinedBehaviorSanitizer: 255 172 comparacoes
+  da funcao Assemble completa, com capacidade nativa ligada/desligada
+  e flat shading ligado/desligado.
+- Vertices identicos byte a byte e mesma sequencia efetiva de pontos,
+  linhas e triangulos no modelo dos comandos de desenho. Verifica a
+  orientacao alternada dos triangulos e os deslocamentos de base.
+- Formatos variados, 10 primitivas, indices densos/dispersos,
+  varios streams e copias de streams, indices desalinhados e ate 65535,
+  bases negativas, contagens incompletas/zero e entradas invalidas.
+- Instalacao/reversao LF e CRLF, repeticao, backup exato, contexto
+  incompativel, edicoes posteriores e backup corrompido verificados.
+- O render_thread.cpp da v3 e deko.cpp ficam preservados.
+
+DESEMPENHO E LIMITES
+Para uma triangle strip de 768 vertices, a lista expandida tinha
+2298 indices de 32 bits = 9192 bytes. O caminho novo usa 768 indices
+de 16 bits = 1536 bytes, ou zero bytes quando nao precisa de indices.
+Isto nao equivale a uma percentagem de aumento dos FPS: o resto do
+trabalho de desenho permanece e a proporcao de strips varia por cena.
+Microteste no host (12 000 desenhos de 768 vertices por ronda):
+sem indices, 189,55 -> 158,70; 191,46 -> 164,30; 164,75 -> 165,43 ms;
+com indices densos, 198,14 -> 174,80; 224,31 -> 175,18;
+207,89 -> 186,76 ms. Cinco rondas melhoraram, uma ficou ligeiramente
+mais lenta. Estes tempos sinteticos em x86 nao medem FPS na Switch.
+O modelo de testes no host nao substitui a execucao na GPU da Switch.
+A NRO completa nao foi compilada com devkitA64 neste ambiente.
+O ganho e o resultado visual ainda precisam do teu teste na consola.
+
+REVERSAO APENAS DESTA ETAPA
+   cd /c/GodfatherNX
+   bash godfather-performance-v5/reverter.sh && bash switch/build.sh
+Depois copia a NRO recompilada. As v1-v4 ficam mantidas.
+Backup: godfather-performance-v5-backup/sdk/runtime/gpu/vertex.cpp
+O instalador valida o bloco completo antes de escrever. A reversao
+para se houver edicoes posteriores ou um backup que nao corresponda.
+Retira a v5 antes de reverter a v4. Nao exige Python nem PowerShell.

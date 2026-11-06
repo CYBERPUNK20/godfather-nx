@@ -1,0 +1,2 @@
+void TraceVscWrite(X86Context& ctx, const char* api, uint32_t reg, uint32_t src, uint32_t count) {
+    if constexpr (!logx::kVerbose) return;

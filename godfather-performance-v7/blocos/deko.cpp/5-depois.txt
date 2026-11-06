@@ -1,0 +1,3 @@
+    upload_bytes_ = 0;
+    LOGR("perf: fixed draws without vertex bank per frame: %.1f", double(fixed_bank_skips_) / n);
+    fixed_bank_skips_ = 0;

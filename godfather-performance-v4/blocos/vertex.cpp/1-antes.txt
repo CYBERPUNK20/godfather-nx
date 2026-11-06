@@ -1,0 +1,58 @@
+// converted on the CPU: each element to a float4, vertices in range order when the indices are dense
+bool AssembleConverted(const State& s, const Inputs& inputs, const DrawRange& d, Assembled& out) {
+    using namespace kernel;
+    int nregs = inputs.nregs;
+    g_perf_asm_converted.fetch_add(1, std::memory_order_relaxed);
+    static thread_local std::vector<uint32_t> seq;  // STREET: kept between draws, not allocated for each
+    bool ranged = uint64_t(d.span) <= uint64_t(d.count) * kRangedSpanPerVertex + kRangedSpanSlack;
+    // VERTBATCH v1: dense draws already have a contiguous source range.
+    // Only sparse draws need a temporary sequence for gathering attributes.
+    if (!ranged) {
+        seq.resize(d.count);
+        for (uint32_t i = 0; i < d.count; i++) seq[i] = DrawVertex(s, d, i);
+    }
+    uint32_t n = ranged ? d.span : d.count;
+    out.vertex_count = n;
+    g_perf_asm_vertices.fetch_add(n, std::memory_order_relaxed);
+    out.vertices.resize(size_t(n) * nregs * 4);
+    for (int k = 0; k < nregs; k++) {
+        const auto& in = inputs.layout.inputs[size_t(inputs.regs[k])];
+        uint32_t stride = StrideOf(s, inputs.layout, in);
+        const uint8_t* src = StreamData(s, in.stream) + in.offset;
+        // Select frequent formats once per attribute. Constant types let the
+        // compiler inline the exact conversion and fixed-size memcpy, without
+        // changing the float4 representation consumed by existing shaders.
+        auto batch = [&]<uint32_t Type>() {
+            float* dst = out.vertices.data() + size_t(k) * 4;
+            const size_t step = size_t(nregs) * 4;
+            auto convert = [&](uint32_t id, float* o) {
+                Convert(Type == UINT32_MAX ? in.type : Type, src + size_t(id) * stride, o);
+            };
+            if (ranged) {
+                for (uint32_t v = 0; v < n; ++v)
+                    convert(d.first_vertex + v, dst + size_t(v) * step);
+            } else {
+                for (uint32_t v = 0; v < n; ++v)
+                    convert(seq[v], dst + size_t(v) * step);
+            }
+        };
+        switch (in.type) {
+            case 0x12: batch.template operator()<0x12>(); break;
+            case 0x22: batch.template operator()<0x22>(); break;
+            case 0x32: batch.template operator()<0x32>(); break;
+            case 0x42: batch.template operator()<0x42>(); break;
+            case 0x40: batch.template operator()<0x40>(); break;
+            case 0x31: batch.template operator()<0x31>(); break;
+            case 0x16: batch.template operator()<0x16>(); break;
+            case kTypeFloat2H: batch.template operator()<kTypeFloat2H>(); break;
+            default: batch.template operator()<UINT32_MAX>(); break;
+        }
+        out.elements[size_t(inputs.regs[k])] = {DXGI_FORMAT_R32G32B32A32_FLOAT, 0, uint16_t(k * 16)};
+    }
+    out.buffer_count = 1;
+    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(out.vertices.data());
+    out.buffers[0] = {bytes, uint32_t(out.vertices.size() * 4), uint32_t(nregs * 16)};
+    auto local = [&](uint32_t i) { return ranged ? DrawVertex(s, d, i) - d.first_vertex : i; };
+    ListIndices(d.prim, d.count, local, out.indices, out.topology);
+    return UseIndexList(out);
+}

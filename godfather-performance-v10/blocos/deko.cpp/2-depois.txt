@@ -1,0 +1,12 @@
+    // DCPREFIX v10: the base pixel shader uses at most spread[]. Fixed
+    // transformed vertices also use matrices, and lit draws can read lt[].
+    // Extensions keep their full bank; offsets, bindings and ring lifetime
+    // stay identical for every shader.
+    size_t dc_bytes = sizeof(c);
+    if (!g_shader_hooks) {
+        if (!sh.fixed_transform) dc_bytes = offsetof(DrawConstants, wv);
+        else if (!(sh.fk.light & 1)) dc_bytes = offsetof(DrawConstants, mat);
+    }
+    const uint64_t uploads_before_dc = const_uploaded_;
+    Upload dc = ConstantsReused(last_dc_, &c, dc_bytes);
+    if (const_uploaded_ != uploads_before_dc) dc_bytes_saved_ += sizeof(c) - dc_bytes;

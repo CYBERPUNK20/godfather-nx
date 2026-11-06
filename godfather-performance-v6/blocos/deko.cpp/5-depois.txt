@@ -1,0 +1,53 @@
+    if (logx::kVerbose && a.vertex_count >= 32 && !a.vertices.empty()) {
+        static uint64_t first_tick = 0;
+        static uint32_t seen_handle[48] = {}, seen_stride[48] = {}, seen_blend[48] = {};
+        static uint16_t seen_regs[48] = {};
+        static unsigned seen_count = 0;
+        if (!first_tick) first_tick = draw_tick;
+        uint32_t stride = a.buffer_count ? a.buffers[0].stride : 0;
+        bool seen = false;
+        for (unsigned i = 0; i < seen_count; ++i)
+            seen |= seen_handle[i] == s.vs_handle && seen_regs[i] == a.regs && seen_stride[i] == stride &&
+                    seen_blend[i] == s.rs[kRsVertexBlend];
+        if (draw_tick - first_tick >= 40'000'000'000ull && !seen && seen_count < std::size(seen_handle)) {
+            seen_handle[seen_count] = s.vs_handle;
+            seen_regs[seen_count] = a.regs;
+            seen_stride[seen_count] = stride;
+            seen_blend[seen_count] = s.rs[kRsVertexBlend];
+            ++seen_count;
+            const uint32_t reg_count = std::popcount(a.regs);
+            LOGR("DRAWDBG t=%.2f handle=%08X program=%u fixed=%u topology=%u regs=%04X vertices=%u indices=%u stride=%u vblend=%u z=%u cull=%u front=%u",
+                 double(draw_tick - first_tick) / 1e9, s.vs_handle, unsigned(sh.prog), unsigned(sh.fixed_transform),
+                 unsigned(a.topology), a.regs, a.vertex_count, a.index_count, stride, s.rs[kRsVertexBlend],
+                 s.rs[kRsZEnable], s.rs[kRsCullMode], s.rs[kRsFrontFace]);
+            uint32_t sample_count = a.index_count && !a.indices.empty()
+                                        ? std::min<uint32_t>(2, uint32_t(a.indices.size()))
+                                        : std::min<uint32_t>(2, a.vertex_count);
+            for (uint32_t sample = 0; sample < sample_count; ++sample) {
+                uint32_t vertex = a.index_count && !a.indices.empty() ? a.indices[sample] : sample;
+                if (vertex >= a.vertex_count) continue;
+                char line[1024] = {};
+                size_t used = 0, slot = 0;
+                for (uint32_t reg = 0; reg < 16; ++reg) {
+                    if (!(a.regs & (1u << reg))) continue;
+                    const float* v = &a.vertices[(size_t(vertex) * reg_count + slot) * 4];
+                    int n = std::snprintf(line + used, sizeof(line) - used,
+                                          " v%u=(%.5g %.5g %.5g %.5g)", reg, v[0], v[1], v[2], v[3]);
+                    if (n > 0) used = std::min(sizeof(line) - 1, used + size_t(n));
+                    ++slot;
+                }
+                LOGR("DRAWDBG sample=%u vertex=%u%s", sample, vertex, line);
+            }
+            if (sh.fixed_transform) {
+                LOGR("DRAWDBG wvp=(%.5g %.5g %.5g %.5g | %.5g %.5g %.5g %.5g | %.5g %.5g %.5g %.5g | %.5g %.5g %.5g %.5g)",
+                     c.wvp[0], c.wvp[1], c.wvp[2], c.wvp[3], c.wvp[4], c.wvp[5], c.wvp[6], c.wvp[7],
+                     c.wvp[8], c.wvp[9], c.wvp[10], c.wvp[11], c.wvp[12], c.wvp[13], c.wvp[14], c.wvp[15]);
+            }
+            if (sh.prog) {
+                for (uint32_t reg = 96; reg < 100; ++reg) {
+                    const auto& v = s.vsc[reg];
+                    LOGR("DRAWDBG vc[%u]=(%.5g %.5g %.5g %.5g)", reg, v[0], v[1], v[2], v[3]);
+                }
+            }
+        }
+    }

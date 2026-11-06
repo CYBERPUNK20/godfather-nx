@@ -1,0 +1,9 @@
+            for (const Range& r : ranges_) {
+                size_t off = r.off, end = r.off + r.len;
+                for (; off + 64 <= end; off += 64)
+                    if (!Same(sent + off, now + off, 64))
+                        DeltaChanged(off, now + off, 64);
+                if (off < end && !Same(sent + off, now + off, end - off))
+                    DeltaChanged(off, now + off, end - off);
+            }
+        }

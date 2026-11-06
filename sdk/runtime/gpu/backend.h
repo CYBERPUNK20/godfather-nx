@@ -55,7 +55,8 @@ private:
 
 std::unique_ptr<Backend> CreateBackend();
 // the same backend driven from a thread of its own: calls return once recorded
-std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner);
+// The optional producer marks every write to State::simple with TouchSimple (or TouchAllState on reset).
+std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner, const State* marked_simple_source = nullptr);
 #ifdef __SWITCH__
 // before the process ends: libnx closes the display and the GPU on exit while the render thread may still present,
 // and deko3d ends the process on a failed call (the console's "closed because of an error"). Waits out the call under

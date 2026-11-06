@@ -1,0 +1,2 @@
+                size_t off = r.off, end = r.off + r.len;
+                // DRAWBANK v7: compare groups first; serialize changed data in the original 64-byte blocks.

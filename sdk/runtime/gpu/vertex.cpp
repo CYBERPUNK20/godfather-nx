@@ -127,44 +127,63 @@ HostElement HostFormat(uint32_t type) {
 // the index list for a primitive the input assembler has no topology for, or for converted vertices
 template <typename F>
 void ListIndices(uint32_t prim, uint32_t count, F local, std::vector<uint32_t>& ix, Topology& topology) {
-    ix.reserve(size_t(count) * 3);
+    // INDEXBATCH v2: size once, then fill directly. Keep the Xbox winding,
+    // incomplete-primitive handling and index order exactly as before.
     topology = Topology::Triangles;
+    size_t added = 0;
     switch (prim) {
-        case 1:  // points
-            topology = Topology::Points;
-            for (uint32_t i = 0; i < count; i++) ix.push_back(local(i));
-            break;
-        case 2:  // line list
+        case 1: topology = Topology::Points; added = count; break;
+        case 2: topology = Topology::Lines; added = size_t(count / 2) * 2; break;
+        case 3:
+        case 4:
             topology = Topology::Lines;
-            for (uint32_t i = 0; i + 1 < count; i += 2) ix.insert(ix.end(), {local(i), local(i + 1)});
+            added = count > 1 ? size_t(count - 1) * 2 : 0;
+            if (prim == 3 && count > 2) added += 2;
             break;
-        case 3:  // line loop
-        case 4:  // line strip
-            topology = Topology::Lines;
-            for (uint32_t i = 0; i + 1 < count; i++) ix.insert(ix.end(), {local(i), local(i + 1)});
-            if (prim == 3 && count > 2) ix.insert(ix.end(), {local(count - 1), local(0)});
+        case 5: added = size_t(count / 3) * 3; break;
+        case 6:
+        case 7:
+        case 10: added = count > 2 ? size_t(count - 2) * 3 : 0; break;
+        case 8: added = size_t(count / 4) * 6; break;
+        case 9: added = count > 3 ? size_t((count - 2) / 2) * 6 : 0; break;
+    }
+    if (!added) return;
+    const size_t begin = ix.size();
+    ix.resize(begin + added);
+    uint32_t* dst = ix.data() + begin;
+    auto put = [&](uint32_t i) { *dst++ = local(i); };
+    switch (prim) {
+        case 1:
+            for (uint32_t i = 0; i < count; ++i) put(i);
             break;
-        case 5:  // triangle list
-            for (uint32_t i = 0; i + 2 < count; i += 3) ix.insert(ix.end(), {local(i), local(i + 1), local(i + 2)});
+        case 2:
+            for (uint32_t i = 0; i + 1 < count; i += 2) { put(i); put(i + 1); }
             break;
-        case 6:  // triangle strip
-            for (uint32_t i = 0; i + 2 < count; i++) {
-                if (i & 1) ix.insert(ix.end(), {local(i + 1), local(i), local(i + 2)});
-                else ix.insert(ix.end(), {local(i), local(i + 1), local(i + 2)});
+        case 3:
+        case 4:
+            for (uint32_t i = 0; i + 1 < count; ++i) { put(i); put(i + 1); }
+            if (prim == 3 && count > 2) { put(count - 1); put(0); }
+            break;
+        case 5:
+            for (uint32_t i = 0; i + 2 < count; i += 3) { put(i); put(i + 1); put(i + 2); }
+            break;
+        case 6:
+            for (uint32_t i = 0; i + 2 < count; ++i) {
+                put(i + (i & 1)); put(i + ((i & 1) ^ 1)); put(i + 2);
             }
             break;
-        case 7:   // fan
-        case 10:  // polygon
-            for (uint32_t i = 1; i + 1 < count; i++) ix.insert(ix.end(), {local(0), local(i), local(i + 1)});
+        case 7:
+        case 10:
+            for (uint32_t i = 1; i + 1 < count; ++i) { put(0); put(i); put(i + 1); }
             break;
-        case 8:  // quad list
+        case 8:
             for (uint32_t i = 0; i + 3 < count; i += 4) {
-                ix.insert(ix.end(), {local(i), local(i + 1), local(i + 2), local(i), local(i + 2), local(i + 3)});
+                put(i); put(i + 1); put(i + 2); put(i); put(i + 2); put(i + 3);
             }
             break;
-        case 9:  // quad strip
+        case 9:
             for (uint32_t i = 0; i + 3 < count; i += 2) {
-                ix.insert(ix.end(), {local(i), local(i + 1), local(i + 2), local(i + 1), local(i + 3), local(i + 2)});
+                put(i); put(i + 1); put(i + 2); put(i + 1); put(i + 3); put(i + 2);
             }
             break;
     }
@@ -186,7 +205,8 @@ uint32_t TypeBytes(uint32_t t) {
 constexpr uint32_t kResData = 4;
 
 void ResetAssembled(Assembled& out) {
-    out.vertices.clear();
+    // VERTPREP v12: converted draws overwrite every float. Keep the old size
+    // until resize so only new elements are initialized. Raw and empty paths clear it.
     out.indices.clear();
     out.regs = 0;
     out.vertex_count = 0;
@@ -442,9 +462,13 @@ bool AssembleConverted(const State& s, const Inputs& inputs, const DrawRange& d,
     int nregs = inputs.nregs;
     g_perf_asm_converted.fetch_add(1, std::memory_order_relaxed);
     static thread_local std::vector<uint32_t> seq;  // STREET: kept between draws, not allocated for each
-    seq.resize(d.count);
-    for (uint32_t i = 0; i < d.count; i++) seq[i] = DrawVertex(s, d, i);
     bool ranged = uint64_t(d.span) <= uint64_t(d.count) * kRangedSpanPerVertex + kRangedSpanSlack;
+    // VERTBATCH v1: dense draws already have a contiguous source range.
+    // Only sparse draws need a temporary sequence for gathering attributes.
+    if (!ranged) {
+        seq.resize(d.count);
+        for (uint32_t i = 0; i < d.count; i++) seq[i] = DrawVertex(s, d, i);
+    }
     uint32_t n = ranged ? d.span : d.count;
     out.vertex_count = n;
     g_perf_asm_vertices.fetch_add(n, std::memory_order_relaxed);
@@ -453,16 +477,63 @@ bool AssembleConverted(const State& s, const Inputs& inputs, const DrawRange& d,
         const auto& in = inputs.layout.inputs[size_t(inputs.regs[k])];
         uint32_t stride = StrideOf(s, inputs.layout, in);
         const uint8_t* src = StreamData(s, in.stream) + in.offset;
-        for (uint32_t v = 0; v < n; v++) {
-            uint32_t id = ranged ? d.first_vertex + v : seq[v];
-            Convert(in.type, src + size_t(id) * stride, &out.vertices[(size_t(v) * nregs + k) * 4]);
+        // Select frequent formats once per attribute. Constant types let the
+        // compiler inline the exact conversion and fixed-size memcpy, without
+        // changing the float4 representation consumed by existing shaders.
+        auto batch = [&]<uint32_t Type>() {
+            float* dst = out.vertices.data() + size_t(k) * 4;
+            const size_t step = size_t(nregs) * 4;
+            auto convert = [&](uint32_t id, float* o) {
+                Convert(Type == UINT32_MAX ? in.type : Type, src + size_t(id) * stride, o);
+            };
+            if (ranged) {
+                for (uint32_t v = 0; v < n; ++v)
+                    convert(d.first_vertex + v, dst + size_t(v) * step);
+            } else {
+                for (uint32_t v = 0; v < n; ++v)
+                    convert(seq[v], dst + size_t(v) * step);
+            }
+        };
+        switch (in.type) {
+            case 0x12: batch.template operator()<0x12>(); break;
+            case 0x22: batch.template operator()<0x22>(); break;
+            case 0x32: batch.template operator()<0x32>(); break;
+            case 0x42: batch.template operator()<0x42>(); break;
+            case 0x40: batch.template operator()<0x40>(); break;
+            case 0x14: batch.template operator()<0x14>(); break;
+            case 0x24: batch.template operator()<0x24>(); break;
+            case 0x34: batch.template operator()<0x34>(); break;
+            case 0x44: batch.template operator()<0x44>(); break;
+            case 0x31: batch.template operator()<0x31>(); break;
+            case 0x16: batch.template operator()<0x16>(); break;
+            case kTypeFloat2H: batch.template operator()<kTypeFloat2H>(); break;
+            default: batch.template operator()<UINT32_MAX>(); break;
         }
         out.elements[size_t(inputs.regs[k])] = {DXGI_FORMAT_R32G32B32A32_FLOAT, 0, uint16_t(k * 16)};
     }
     out.buffer_count = 1;
     const uint8_t* bytes = reinterpret_cast<const uint8_t*>(out.vertices.data());
     out.buffers[0] = {bytes, uint32_t(out.vertices.size() * 4), uint32_t(nregs * 16)};
-    auto local = [&](uint32_t i) { return ranged ? seq[i] - d.first_vertex : i; };
+    // DIRECTLIST v4: keep the converted float4 vertices, but avoid rebuilding
+    // point/line/triangle lists on backends that already accept native draws.
+    // Dense indexed draws use the original 16-bit indices plus a base offset;
+    // gathered and non-indexed draws already have their vertices in draw order.
+    // Leave strips, fans and quads on the existing expansion path.
+    if (g_native_polygons.load(std::memory_order_relaxed) &&
+        (d.prim == 1 || d.prim == 2 || d.prim == 5)) {
+        DrawRange native = d;
+        const uint32_t group = d.prim == 5 ? 3u : d.prim;
+        native.count -= native.count % group;
+        return DrawNative(native, ranged, out);
+    }
+    // DIRECTSTRIP v5: let the GPU assemble line/triangle strips rather than
+    // expanding them to a list on the CPU. Keep the converted vertex buffers.
+    // Flat shading retains the list path because the provoking vertex can
+    // differ between a native strip and its expanded triangle list.
+    if (g_native_polygons.load(std::memory_order_relaxed) &&
+        (d.prim == 4 || d.prim == 6) && s.simple[kMShadeMode >> 2] != 0x1D00)
+        return DrawNative(d, ranged, out);
+    auto local = [&](uint32_t i) { return ranged ? DrawVertex(s, d, i) - d.first_vertex : i; };
     ListIndices(d.prim, d.count, local, out.indices, out.topology);
     return UseIndexList(out);
 }
@@ -536,12 +607,18 @@ bool DrawStreamSpans(const State& s, uint32_t prim, uint32_t start, uint32_t cou
 
 bool Assemble(const State& s, uint32_t prim, uint32_t start, uint32_t count, const uint8_t* ip, Assembled& out) {
     ResetAssembled(out);
-    if (!count || prim < 1 || prim > 10) return false;
+    if (!count || prim < 1 || prim > 10) {
+        out.vertices.clear();
+        return false;
+    }
 
     VertexShader fvf_layout;
     const VertexShader* layout = PickLayout(s, fvf_layout);
     out.pretransformed = Pretransformed(s);
-    if (!layout) return false;
+    if (!layout) {
+        out.vertices.clear();
+        return false;
+    }
 
     // the vertex range the draw reads
     IndexBounds bounds = {0, count - 1};
@@ -557,12 +634,18 @@ bool Assemble(const State& s, uint32_t prim, uint32_t start, uint32_t count, con
 
     int regs[16];
     int nregs = CollectRegs(s, *layout, regs, out);
-    if (!nregs) return false;
+    if (!nregs) {
+        out.vertices.clear();
+        return false;
+    }
     Inputs inputs = {*layout, regs, nregs};
 
     // the guest's own vertices when the input assembler can read every element of them
     bool raw = kRawVertices && RawReadable(s, inputs);
-    if (raw) return AssembleRaw(s, inputs, d, out);
+    if (raw) {
+        out.vertices.clear();
+        return AssembleRaw(s, inputs, d, out);
+    }
     return AssembleConverted(s, inputs, d, out);
 }
 

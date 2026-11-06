@@ -1,0 +1,60 @@
+GodfatherNX — desempenho v2 (INDEXBATCH)
+
+Objetivo: reduzir o custo de construir os indices de desenho no CPU.
+Esta etapa complementa a performance-v1 ja instalada. Mantem os dados
+dos vertices e a mesma lista/ordem de indices enviados ao renderer.
+
+INSTALAR
+1. Extrai esta pasta para C:\GodfatherNX.
+2. No MSYS2:
+   cd /c/GodfatherNX
+   bash godfather-performance-v2/aplicar.sh && bash switch/build.sh
+3. So depois de a compilacao terminar com sucesso, copia
+   build-switch/godfather.nro para a pasta do jogo na Switch.
+4. Mantem o TOML atual, incluindo render_percent = 80, para comparar.
+   Repete o mesmo save, percurso e combate com policia/carros a explodir.
+   Envia o novo godfather.log depois de sair do jogo normalmente.
+
+ALTERACAO
+Modifica apenas ListIndices em sdk/runtime/gpu/vertex.cpp.
+Calcula o tamanho final e preenche a lista diretamente, em vez de
+chamar insert/push_back para cada pequeno grupo de indices.
+Preserva pontos, linhas, loops, strips, fans, triangulos e quads,
+incluindo a ordem dos vertices e o tratamento de primitivas incompletas.
+Mantem a performance-v1, as correcoes graficas e as configuracoes.
+Nao desbloqueia 60 FPS, nao altera clocks e nao elimina efeitos.
+
+VALIDACAO
+- Compilacao C++20 no computador, com -Wall -Wextra -Werror.
+- AddressSanitizer/UndefinedBehaviorSanitizer: 61 213 comparacoes da
+  rotina Assemble completa anterior contra a nova, sem diferencas
+  nos vertices (comparacao byte a byte), indices e metadados de desenho.
+- Formatos variados, 10 primitivas, indices densos/esparsos, varios
+  streams e copias de vertices; entradas invalidas e FVF.
+- Instalacao/reversao verificadas com LF e CRLF, repeticao da instalacao,
+  ficheiros incompativeis, edicoes posteriores e backup corrompido.
+- Microteste sintetico no computador: 12 000 desenhos de 768 vertices,
+  tres rondas: 248,26 -> 193,84 ms; 213,77 -> 175,84 ms;
+  209,09 -> 187,61 ms. Isto NAO e uma medicao de FPS na Switch.
+
+LIMITES E LOGS
+O registo das 19:08, enviado com os nomes 191221 e 191525, e identico.
+Confirma render_percent=80, escala=1,2 e saida normal Exit(0).
+Na ultima janela de aproximadamente 10 segundos: 25,0 FPS, GPU 26,08 ms,
+assemble 8,27 ms, upload 4,17 ms e aproximadamente 837 desenhos/fotograma.
+Esses tempos pertencem a trabalhos que podem sobrepor-se: nao devem
+ser somados para calcular FPS. Medias tambem nao mostram todos os picos.
+Nao ha uma comparacao de cenas identicas que permita garantir um ganho.
+A NRO completa e o resultado visual precisam de ser testados na Switch;
+nao existe aqui um teste da ferramenta devkitA64 nem da GPU da consola.
+
+SEGURANCA E REVERSAO
+O instalador verifica o bloco completo antes de alterar o ficheiro.
+Backup: godfather-performance-v2-backup/sdk/runtime/gpu/vertex.cpp
+Nao uses o reverter da v1 enquanto a v2 estiver instalada.
+Para retirar apenas esta etapa, no MSYS2:
+   cd /c/GodfatherNX
+   bash godfather-performance-v2/reverter.sh && bash switch/build.sh
+Depois copia a NRO recompilada. A v1 fica mantida.
+Se o ficheiro tiver sido editado depois, a reversao para para preservar
+essas alteracoes. Os scripts nao exigem Python nem PowerShell.

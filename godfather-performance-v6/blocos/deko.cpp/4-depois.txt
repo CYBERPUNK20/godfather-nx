@@ -1,0 +1,42 @@
+    if constexpr (logx::kVerbose) {
+        static uint64_t capture_start = 0;
+        static unsigned captured = 0;
+        if (!capture_start) capture_start = draw_tick;
+        if (draw_tick - capture_start >= 80'000'000'000ull && captured < 1024) {
+            unsigned id = captured++;
+            uint32_t texture_mask = 0;
+            for (unsigned i = 0; i < 4; ++i)
+                if (s.textures[i]) texture_mask |= 1u << i;
+            float px = 0, py = 0, pz = 0, pw = 0;
+            if ((a.regs & 1) && a.vertex_count && a.vertices.size() >= size_t(a.vertex_count) * std::popcount(a.regs) * 4) {
+                uint32_t v = a.index_count && !a.indices.empty() ? a.indices[0] : 0;
+                if (v < a.vertex_count) {
+                    const float* p = &a.vertices[size_t(v) * std::popcount(a.regs) * 4];
+                    px = p[0]; py = p[1]; pz = p[2]; pw = p[3];
+                }
+            }
+            float minx = 0, miny = 0, minz = 0, maxx = 0, maxy = 0, maxz = 0;
+            bool have_bounds = false;
+            const uint32_t reg_count = std::popcount(a.regs);
+            if ((a.regs & 1) && a.vertex_count && a.vertices.size() >= size_t(a.vertex_count) * reg_count * 4) {
+                minx = miny = minz = 1.0e30f;
+                maxx = maxy = maxz = -1.0e30f;
+                for (uint32_t v = 0; v < a.vertex_count; ++v) {
+                    const float* p = &a.vertices[size_t(v) * reg_count * 4];
+                    minx = std::min(minx, p[0]); maxx = std::max(maxx, p[0]);
+                    miny = std::min(miny, p[1]); maxy = std::max(maxy, p[1]);
+                    minz = std::min(minz, p[2]); maxz = std::max(maxz, p[2]);
+                }
+                have_bounds = true;
+            }
+            LOGR("SCENEDBG #%u handle=%08X program=%u fixed=%u regs=%04X verts=%u indices=%u blend=%u z=%u cull=%u tex=%X t0=%08X p0=(%.5g %.5g %.5g %.5g) bounds=%u:(%.5g %.5g %.5g)-(%.5g %.5g %.5g)",
+                 id, s.vs_handle, unsigned(sh.prog), unsigned(sh.fixed_transform), a.regs, a.vertex_count, a.index_count,
+                 s.rs[kRsVertexBlend], s.rs[kRsZEnable], s.rs[kRsCullMode], texture_mask, s.textures[0], px, py, pz, pw,
+                 unsigned(have_bounds), minx, miny, minz, maxx, maxy, maxz);
+            if (sh.fixed_transform && id < 256) {
+                LOGR("SCENEDBG #%u wvp=(%.5g %.5g %.5g %.5g | %.5g %.5g %.5g %.5g | %.5g %.5g %.5g %.5g | %.5g %.5g %.5g %.5g)",
+                     id, c.wvp[0], c.wvp[1], c.wvp[2], c.wvp[3], c.wvp[4], c.wvp[5], c.wvp[6], c.wvp[7],
+                     c.wvp[8], c.wvp[9], c.wvp[10], c.wvp[11], c.wvp[12], c.wvp[13], c.wvp[14], c.wvp[15]);
+            }
+        }
+    }

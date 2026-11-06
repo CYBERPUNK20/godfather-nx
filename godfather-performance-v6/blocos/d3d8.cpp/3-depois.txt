@@ -1,0 +1,21 @@
+    // QUIETDRAW v6: legacy mesh probes run only in verbose builds.
+    if constexpr (logx::kVerbose) {
+        static const auto shader_trace_start = std::chrono::steady_clock::now();
+        static bool target_shader_first_seen = false;
+        static unsigned target_shader_late_trace_count = 0;
+        const auto shader_trace_elapsed = std::chrono::steady_clock::now() - shader_trace_start;
+        auto trace_it = g_vs.find(h);
+        if (h == 0xB0102291 && !target_shader_first_seen) {
+            target_shader_first_seen = true;
+            LOGR("VSSELECT first ret=%08X handle=%08X known=%u instructions=%zu type=%04X",
+                 R32(ctx.esp), h, unsigned(trace_it != g_vs.end()),
+                 trace_it == g_vs.end() ? size_t(0) : trace_it->second->program.size() / 4,
+                 trace_it == g_vs.end() ? 0 : trace_it->second->program_type);
+        }
+        if (h == 0xB0102291 && shader_trace_elapsed >= std::chrono::seconds(40) && target_shader_late_trace_count++ < 128) {
+            LOGR("VSSELECT late ret=%08X handle=%08X known=%u instructions=%zu type=%04X",
+                 R32(ctx.esp), h, unsigned(trace_it != g_vs.end()),
+                 trace_it == g_vs.end() ? size_t(0) : trace_it->second->program.size() / 4,
+                 trace_it == g_vs.end() ? 0 : trace_it->second->program_type);
+        }
+    }

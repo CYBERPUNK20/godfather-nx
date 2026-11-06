@@ -605,6 +605,8 @@ private:
                  kPhTargets, kPhTextures, kPhConstants, kPhases };
     uint64_t phase_ns_[kPhases] = {};
     uint64_t const_reused_ = 0, const_uploaded_ = 0, upload_bytes_ = 0;
+    uint64_t fixed_bank_skips_ = 0;
+    uint64_t dc_bytes_saved_ = 0;
     uint64_t stage_memo_hits_ = 0, stage_memo_misses_ = 0;
     uint64_t sig_bytes_ = 0, tex_uploads_ = 0, tex_upload_bytes_ = 0;
     uint32_t check_frames_ = 1;
@@ -1033,7 +1035,8 @@ void DekoBackend::EnsureVertexShader(const State& s, const Assembled& a, DrawSha
     std::string src = VertexHlsl(s, a, sh);
     // Dump a few large programmable vertex shaders once so missing animated meshes can
     // be traced back to the guest microcode translation (rather than texture or ring state).
-    if (sh.prog && a.vertex_count >= 100) {
+    // QUIETDRAW v6: retain shader dumps for verbose builds.
+    if (logx::kVerbose && sh.prog && a.vertex_count >= 100) {
         static uint64_t dumped[4] = {};
         static size_t dumped_count = 0;
         bool seen = false;
@@ -1734,7 +1737,7 @@ void DekoBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t c
     // Diagnostic for animated/fixed-function meshes. The current fixed vertex shader
     // does not yet implement D3DRS_VERTEXBLEND, so capture the FVF/declaration evidence
     // before deciding whether to add the matrix-palette path.
-    {
+    if constexpr (logx::kVerbose) {
         const bool fvf_weights = !(s.vs_handle & 1) && (s.vs_handle & 0xE) >= 0x6 && (s.vs_handle & 0xE) <= 0xC;
         const bool decl_weights = (s.vs_handle & 1) && s.vs && s.vs->inputs[1].type != 0;
         if (s.rs[kRsVertexBlend] || fvf_weights || decl_weights) {
@@ -1774,7 +1777,7 @@ void DekoBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t c
     // This programmable shader dominates the live scene capture. It may have been
     // compiled earlier by a small draw, so dump its source here rather than only on a
     // shader-cache miss in EnsureVertexShader.
-    if (sh.prog && s.vs_handle == 0xB0102291 && a.regs == 0x0001 && a.vertex_count >= 100) {
+    if (logx::kVerbose && sh.prog && s.vs_handle == 0xB0102291 && a.regs == 0x0001 && a.vertex_count >= 100) {
         static bool dumped_scene_program = false;
         if (!dumped_scene_program) {
             dumped_scene_program = true;
@@ -1835,7 +1838,7 @@ void DekoBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t c
     // Capture one bounded burst from the live scene. The deduplicated trace above
     // cannot distinguish repeated props from a character draw that reuses the same
     // shader and vertex format.
-    {
+    if constexpr (logx::kVerbose) {
         static uint64_t capture_start = 0;
         static unsigned captured = 0;
         if (!capture_start) capture_start = draw_tick;
@@ -1880,7 +1883,7 @@ void DekoBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t c
     // The previous capture identified B0001961 as screen-space geometry, not a
     // character mesh. Capture the first substantial draw for each vertex layout after
     // the scene starts, including input attributes and the fixed-function WVP matrix.
-    if (a.vertex_count >= 32 && !a.vertices.empty()) {
+    if (logx::kVerbose && a.vertex_count >= 32 && !a.vertices.empty()) {
         static uint64_t first_tick = 0;
         static uint32_t seen_handle[48] = {}, seen_stride[48] = {}, seen_blend[48] = {};
         static uint16_t seen_regs[48] = {};
@@ -1936,11 +1939,27 @@ void DekoBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t c
     if (trace_.Active()) TraceDraw(s, a, sh, pk, c, stages);
     phase(kPhConstants);
     // everything uploaded before the targets are bound: a full ring ends the slot, which drops the bound state
-    uint32_t need = 2 * kUboRange + 1024 + a.index_count * 4 + 16;
+    // DRAWBANK v7: stock fixed shaders and the stock fragment shader use b1.
+    // Programmable vertex shaders and extension hooks retain the full b0 bank.
+    const bool needs_vsc = sh.prog || g_shader_hooks != nullptr;
+    uint32_t need = (needs_vsc ? 2u : 1u) * kUboRange + 1024 + a.index_count * 4 + 16;
     for (uint32_t i = 0; i < a.buffer_count; i++) need += a.buffers[i].bytes + 16;
     if (core_.UploadFree() < need) Submit(false);
-    Upload vc = ConstantsReused(last_vsc_, s.vsc.data(), sizeof(s.vsc));
-    Upload dc = ConstantsReused(last_dc_, &c, sizeof(c));
+    Upload vc{};
+    if (needs_vsc) vc = ConstantsReused(last_vsc_, s.vsc.data(), sizeof(s.vsc));
+    else ++fixed_bank_skips_;
+    // DCPREFIX v10: the base pixel shader uses at most spread[]. Fixed
+    // transformed vertices also use matrices, and lit draws can read lt[].
+    // Extensions keep their full bank; offsets, bindings and ring lifetime
+    // stay identical for every shader.
+    size_t dc_bytes = sizeof(c);
+    if (!g_shader_hooks) {
+        if (!sh.fixed_transform) dc_bytes = offsetof(DrawConstants, wv);
+        else if (!(sh.fk.light & 1)) dc_bytes = offsetof(DrawConstants, mat);
+    }
+    const uint64_t uploads_before_dc = const_uploaded_;
+    Upload dc = ConstantsReused(last_dc_, &c, dc_bytes);
+    if (const_uploaded_ != uploads_before_dc) dc_bytes_saved_ += sizeof(c) - dc_bytes;
     DkGpuAddr vbuf[16];
     for (uint32_t i = 0; i < a.buffer_count; i++) {
         const VertexBuffer& b = a.buffers[i];
@@ -1972,7 +1991,7 @@ void DekoBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t c
     const DkShader* pair[] = {sh.vs, sh.ps};
     dkCmdBufBindShaders(cmd, DkStageFlag_GraphicsMask, pair, 2);
     for (DkStage st : {DkStage_Vertex, DkStage_Fragment}) {
-        dkCmdBufBindUniformBuffer(cmd, st, 0, vc.gpu, kUboRange);
+        if (needs_vsc) dkCmdBufBindUniformBuffer(cmd, st, 0, vc.gpu, kUboRange);
         dkCmdBufBindUniformBuffer(cmd, st, 1, dc.gpu, kUboRange);
     }
     dkCmdBufBindTextures(cmd, DkStage_Fragment, 0, tex, 4);
@@ -2689,6 +2708,10 @@ void DekoBackend::LogPerf() {
          barriers_frag_ / n);
     compiles_ = compile_ns_ = 0;
     upload_bytes_ = 0;
+    LOGR("perf: fixed draws without vertex bank per frame: %.1f", double(fixed_bank_skips_) / n);
+    fixed_bank_skips_ = 0;
+    LOGR("perf: skipped draw constants %.0f KiB/frame", double(dc_bytes_saved_) / 1024.0 / n);
+    dc_bytes_saved_ = 0;
     LOGR("perf: texture stages remembered %.0f%%, upload ring %s",
          stage_memo_hits_ + stage_memo_misses_ ? 100.0 * double(stage_memo_hits_) / double(stage_memo_hits_ + stage_memo_misses_) : 0.0,
          core_.config().upload_cached ? "cached" : "uncached");

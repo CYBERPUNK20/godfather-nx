@@ -1,0 +1,69 @@
+GodfatherNX - desempenho v3 (STATECHECK)
+
+Objetivo: reduzir trabalho do CPU ao comparar o estado grafico antes
+de o enviar para a thread de renderizacao. Complementa as v1 e v2.
+
+INSTALAR
+1. Extrai a pasta godfather-performance-v3 para C:\GodfatherNX.
+2. No MSYS2:
+   cd /c/GodfatherNX
+   bash godfather-performance-v3/aplicar.sh && bash switch/build.sh
+3. Apenas depois da compilacao terminar com sucesso, copia
+   build-switch/godfather.nro para a pasta do jogo na Switch.
+4. No TOML que usaste para recolher o perfil, coloca profile = false.
+   Mantem render_percent = 80 e as restantes opcoes como estavam.
+   Em particular, mantem state_tracking, reuse_constants e cached_upload
+   desligados. O instalador nao altera a configuracao.
+5. Repete o mesmo save/percurso, combate com policia e carros a explodir.
+   Sai normalmente e envia o novo godfather.log e stderr.log.
+
+ALTERACAO
+Modifica apenas sdk/runtime/gpu/render_thread.cpp.
+Com state_tracking desligado, os blocos completos de 64 bytes passam
+a ser comparados diretamente no ciclo. Apenas os blocos diferentes
+entram na rotina que copia e serializa as alteracoes. Os blocos finais
+mais pequenos continuam a ser verificados. Todos os bytes continuam
+a ser comparados, sem depender da sinalizacao de estado modificado.
+Preserva a ordem e o conteudo dos comandos, os shaders e as verificacoes
+dos recursos. As correcoes de personagens, fogo e explosoes ficam mantidas.
+Nao muda a resolucao, os clocks ou o limite de FPS.
+
+EVIDENCIA
+O prof.bin enviado com os registos 20261105-194323 foi cruzado com
+godfather-cpu-simbolos.txt da compilacao correspondente.
+Entre 90 e 180 segundos, 14 175 das 87 363 amostras da thread principal
+do jogo (16,23%) estavam em Threaded::Delta. Isto e uma fracao de
+amostras da thread, nao uma medicao da utilizacao total do CPU nem
+uma promessa de aumentar os FPS em 16%.
+
+VALIDACAO
+- Compilacao da unidade render_thread.cpp completa em C++20 no host.
+- AddressSanitizer e UndefinedBehaviorSanitizer: 48 464 transicoes
+  de estado comparadas com a versao anterior; mesmos bytes serializados,
+  comandos, referencias a shaders e chamadas de verificacao de headers.
+- Cobertura individual dos 14 232 bytes dos intervalos de estado,
+  blocos finais, alteracoes esparsas/densas, shaders, recursos e modo
+  de acompanhamento de alteracoes. Os headers sao simulados neste teste;
+  nao substitui uma execucao real da GPU.
+- Instalacao/reversao LF e CRLF, repeticao, backup exato, ficheiro
+  incompativel, edicoes posteriores e backup corrompido verificados.
+- Microteste no host, 40 000 chamadas por caso, alterando 0/1/4/32/256
+  bytes por chamada: 67,79 -> 59,87; 63,82 -> 51,28; 64,93 -> 54,63;
+  95,61 -> 75,58; 200,42 -> 181,04 ms, respetivamente.
+  Estes resultados sao sinteticos em x86; nao medem o ganho na Switch.
+
+LIMITES
+A compilacao completa da NRO com devkitA64 e o desempenho/resultado
+visual na Switch ainda precisam de ser verificados. Nao foi executado
+o jogo numa Switch neste ambiente. O objetivo e reduzir o custo desta
+rotina mantendo o comportamento; nao e uma garantia de 30 FPS fixos.
+
+REVERSAO
+O instalador valida o bloco completo e guarda uma copia de seguranca em:
+godfather-performance-v3-backup/sdk/runtime/gpu/render_thread.cpp
+Para retirar apenas esta etapa:
+   cd /c/GodfatherNX
+   bash godfather-performance-v3/reverter.sh && bash switch/build.sh
+Depois copia a NRO recompilada. As v1 e v2 ficam mantidas.
+Se o ficheiro tiver sido editado entretanto, a reversao para para
+preservar essas alteracoes. Nao exige Python nem PowerShell no teu PC.

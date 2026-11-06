@@ -1,0 +1,46 @@
+GodfatherNX — perfil do CPU para orientar a proxima otimizacao
+
+Este pacote e de diagnostico, nao e uma performance-v3.
+A NRO atual ja inclui o profiler. Nao e preciso recompilar nem instalar
+Python ou PowerShell. Mantem as otimizacoes v1/v2 e render_percent=80.
+
+1. Extrai a pasta godfather-cpu-profile para C:\GodfatherNX.
+2. No MSYS2:
+   cd /c/GodfatherNX
+   bash godfather-cpu-profile/preparar.sh
+   Isto cria C:\GodfatherNX\godfather-cpu-simbolos.txt, com nomes e
+   enderecos das funcoes e hashes da compilacao. Nao altera o jogo.
+3. A NRO no cartao deve ser a que esta em build-switch/godfather.nro.
+   Se a substituiste entretanto, copia essa NRO para o cartao.
+   Nao recompiles entre gerar os simbolos e fazer este teste.
+4. Com o jogo fechado, no cartao, abre:
+   switch/godfather-nx/godfather-settings.toml
+   Muda APENAS a linha profile = false para profile = true.
+5. Abre o jogo, carrega o save e reproduz as quedas durante 60–90 segundos.
+   Sai normalmente. O profiler tem custo proprio: nao uses este teste
+   para comparar FPS com os testes anteriores.
+6. Antes de abrir o jogo outra vez, copia do cartao:
+   switch/godfather-nx/logs/prof.bin
+   e o godfather.log desta execucao, como tens enviado ate agora.
+   O prof.bin e reiniciado quando comeca uma nova sessao com profile=true.
+7. Volta a colocar profile = false para jogar normalmente.
+8. Envia prof.bin, godfather.log e godfather-cpu-simbolos.txt.
+   Podes comprimir estes tres ficheiros num ZIP no Windows se forem grandes.
+
+Se prof.bin nao aparecer ou estiver vazio, envia o log e a mensagem do
+script. Nao alteres outras opcoes para tentar resolver isso.
+
+PORQUE PRECISAMOS DESTE TESTE
+O log de 19:22 termina normalmente aos 450 s. Em varias amostras, a
+preparacao de vertices/indices fica entre 3 e 5 ms. Ainda ha quedas
+para 26–29 FPS com medias de GPU abaixo de 22 ms. Os tempos de tarefas
+que se sobrepoem nao se somam diretamente; as medias ocultam picos.
+Os logs atuais nao dizem que funcoes do jogo/CPU explicam o tempo restante.
+O perfil permite distinguir a logica do jogo, a captura de estado, as
+copias de memoria e outras rotinas antes da proxima alteracao.
+
+LIMITES
+O script apenas le o ELF/NRO no PC e cria um ficheiro de texto.
+O profiler existente foi inspecionado no codigo, mas a recolha real
+depende da execucao na tua Switch. Pode haver funcoes sem simbolos ou
+amostras insuficientes. Este pacote nao promete um aumento de FPS.

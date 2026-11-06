@@ -137,7 +137,8 @@ extern "C" void street_profile_thread(const char* name) __attribute__((weak));  
 
 class Threaded final : public Backend {
 public:
-    explicit Threaded(std::unique_ptr<Backend> inner) : inner_(std::move(inner)), ranges_(StateRanges()) {
+    Threaded(std::unique_ptr<Backend> inner, const State* marked_simple_source)
+        : inner_(std::move(inner)), ranges_(StateRanges()), marked_simple_source_(marked_simple_source) {
         ring_ = mem::AllocSystem(kHeaderRing, 64);
         if (std::getenv("STREET_TRACK_STATE")) g_track_state = true;  // off the Switch: on by the environment
         TouchAllState();
@@ -390,15 +391,20 @@ private:
     }
 
     // a field of the render thread's State, when it differs from what was sent
-    void Delta(const void* field, const void* value, size_t n) {
-        uint8_t* sent = reinterpret_cast<uint8_t*>(&sent_) + At(sent_, field);
-        if (Same(sent, static_cast<const uint8_t*>(value), n)) return;
+    void DeltaChanged(size_t off, const void* value, size_t n) {
+        uint8_t* sent = reinterpret_cast<uint8_t*>(&sent_) + off;
         std::memcpy(sent, value, n);
-        uint32_t head[2] = {uint32_t(At(sent_, field)), uint32_t(n)};
+        uint32_t head[2] = {uint32_t(off), uint32_t(n)};
         size_t at = cur_->bytes.size();
         cur_->bytes.resize(at + 8 + n);
         std::memcpy(cur_->bytes.data() + at, head, 8);
         std::memcpy(cur_->bytes.data() + at + 8, value, n);
+    }
+
+    void Delta(const void* field, const void* value, size_t n) {
+        size_t off = At(sent_, field);
+        const uint8_t* sent = reinterpret_cast<const uint8_t*>(&sent_) + off;
+        if (!Same(sent, static_cast<const uint8_t*>(value), n)) DeltaChanged(off, value, n);
     }
 
     // what changed since the last command, in 64 byte pieces
@@ -408,6 +414,9 @@ private:
         size_t first = cur_->bytes.size();
         // STREET: blocks of simple and vsc nobody wrote since the last send are equal to what was sent
         const bool track = g_track_state;
+        // SIMPLEBANK v8: a source change requires a full snapshot of the simple bank.
+        const bool use_simple_marks = last_was_marked_source_ && &s == marked_simple_source_;
+        last_was_marked_source_ = &s == marked_simple_source_;
         const uint8_t* sent = reinterpret_cast<const uint8_t*>(&sent_);
         if (track) {
             // straight to the written blocks, each cut to the ranges it overlaps
@@ -420,9 +429,35 @@ private:
                     }
                 }
         } else {
-            for (const Range& r : ranges_)
-                for (size_t off = r.off, end = r.off + r.len; off < end; off += 64)
-                    Delta(sent + off, now + off, std::min<size_t>(64, end - off));
+            // STATECHECK v3: compare complete blocks inline at a constant size.
+            // DeltaChanged only runs for changed blocks; every byte is still checked,
+            // independently of dirty-state tracking or resource-header caching.
+            for (const Range& r : ranges_) {
+                size_t off = r.off, end = r.off + r.len;
+                // The first range starts with the simple bank. Two bitmap words cover
+                // it exactly. Emit in the original order and still compare marked blocks.
+                static_assert(offsetof(State, simple) == 0 && sizeof(s.simple) % (64 * 64) == 0);
+                if (use_simple_marks && off == 0 && end >= sizeof(s.simple)) {
+                    for (size_t word = 0; word < sizeof(s.simple) / (64 * 64); ++word) {
+                        for (uint64_t bits = g_state_dirty[word]; bits; bits &= bits - 1) {
+                            const size_t b = (word * 64 + std::countr_zero(bits)) * 64;
+                            if (!Same(sent + b, now + b, 64)) DeltaChanged(b, now + b, 64);
+                        }
+                    }
+                    off = sizeof(s.simple);
+                }
+                // DRAWBANK v7: compare groups first; serialize changed data in the original 64-byte blocks.
+                for (; end - off >= 512; off += 512) {
+                    if (std::memcmp(sent + off, now + off, 512) == 0) continue;
+                    for (size_t b = off; b < off + 512; b += 64)
+                        if (!Same(sent + b, now + b, 64)) DeltaChanged(b, now + b, 64);
+                }
+                for (; off + 64 <= end; off += 64)
+                    if (!Same(sent + off, now + off, 64))
+                        DeltaChanged(off, now + off, 64);
+                if (off < end && !Same(sent + off, now + off, end - off))
+                    DeltaChanged(off, now + off, end - off);
+            }
         }
         // STREET: with state tracking a group of headers is read again only when the title set it since the last send,
         // as the console takes a header's fields when it is set (and its copies before half the ring has gone by):
@@ -619,6 +654,8 @@ private:
 
     std::unique_ptr<Backend> inner_;
     std::vector<Range> ranges_;
+    const State* marked_simple_source_;
+    bool last_was_marked_source_ = false;
 
     // the title's thread
     struct HeaderCopy {
@@ -663,6 +700,8 @@ private:
 
 }  // namespace
 
-std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner) { return std::make_unique<Threaded>(std::move(inner)); }
+std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner, const State* marked_simple_source) {
+    return std::make_unique<Threaded>(std::move(inner), marked_simple_source);
+}
 
 }  // namespace gpu

@@ -1,6 +1,7 @@
 #include "gpu/texture.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <bit>
 #include <cstring>
@@ -22,7 +23,7 @@ struct Entry {
 };
 
 // console texture formats (XDK D3DFORMAT values) and how they reach the host
-const Entry kFormats[] = {
+constexpr Entry kFormats[] = {
     {0x00, {"L8", 8, true, false, false, Host::BGRA8}},
     {0x01, {"AL8", 8, true, false, false, Host::BGRA8}},
     {0x02, {"A1R5G5B5", 16, true, false, false, Host::BGRA8}},
@@ -262,9 +263,16 @@ std::atomic<uint64_t> g_epoch{1};
 }  // namespace
 
 const FormatInfo& Format(uint32_t f) {
-    for (auto& e : kFormats)
-        if (e.id == f) return e.info;
-    return kUnknown;
+    // TEXINDEX v11: texture IDs are one byte. Zero means an unknown format.
+    static constexpr auto index = [] {
+        std::array<uint8_t, 256> result{};
+        static_assert(std::size(kFormats) < 256);
+        for (size_t i = 0; i < std::size(kFormats); ++i)
+            result[kFormats[i].id] = static_cast<uint8_t>(i + 1);
+        return result;
+    }();
+    if (f >= index.size() || !index[f]) return kUnknown;
+    return kFormats[index[f] - 1].info;
 }
 
 bool Describe(uint32_t header, TextureDesc& d) {
@@ -292,8 +300,9 @@ bool Describe(uint32_t header, TextureDesc& d) {
         d.width = 1u << ((fmt >> 20) & 0xF);
         d.height = 1u << ((fmt >> 24) & 0xF);
         d.depth = dims == 3 ? 1u << ((fmt >> 28) & 0xF) : 1;
-        d.linear = !Format(d.format).swizzled && !Format(d.format).compressed;
-        d.pitch = d.width * Format(d.format).bits / 8;
+        const FormatInfo& format = Format(d.format);
+        d.linear = !format.swizzled && !format.compressed;
+        d.pitch = d.width * format.bits / 8;
     }
     return true;
 }
@@ -376,14 +385,12 @@ void DecodeLevel(const TextureDesc& d, uint32_t level, uint32_t face, const uint
     }
     uint32_t mx, my, mz;
     SwizzleMasks(w, h, z, mx, my, mz);
-    std::vector<uint32_t> xo(w), yo(h), zo(z);
-    for (uint32_t x = 0; x < w; x++) xo[x] = Deposit(x, mx);
-    for (uint32_t y = 0; y < h; y++) yo[y] = Deposit(y, my);
-    for (uint32_t k = 0; k < z; k++) zo[k] = Deposit(k, mz);
-    for (uint32_t k = 0; k < z; k++)
-        for (uint32_t y = 0; y < h; y++)
-            for (uint32_t x = 0; x < w; x++) {
-                const uint8_t* p = src + size_t(xo[x] | yo[y] | zo[k]) * bpp;
+    // Advance each axis within its Morton bits. Subtracting its mask and
+    // masking again carries into the next occupied bit (unsigned arithmetic).
+    for (uint32_t k = 0, zo = 0; k < z; ++k, zo = (zo - mz) & mz)
+        for (uint32_t y = 0, yo = 0; y < h; ++y, yo = (yo - my) & my)
+            for (uint32_t x = 0, xo = 0; x < w; ++x, xo = (xo - mx) & mx) {
+                const uint8_t* p = src + size_t(xo | yo | zo) * bpp;
                 uint8_t* o = &out[((size_t(k) * h + y) * w + x) * 4];
                 if (d.format == 0x0B && palette) {
                     uint32_t c = palette[p[0]];

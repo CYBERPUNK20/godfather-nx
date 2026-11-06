@@ -110,6 +110,18 @@ if(NOT GODFATHER_WITH_NVK)
 endif()
 
 if(HAVE_GEN)
+    # MOVIE9: optimize verified intro kernels in the build tree.
+    set(movie_input "${GEN}/x86_recomp.103.cpp")
+    if(movie_input IN_LIST GEN_SOURCES AND EXISTS "${movie_input}")
+        find_program(MOVIE_BASH bash REQUIRED)
+        set(movie_output "${CMAKE_CURRENT_BINARY_DIR}/movie_recomp.103.cpp")
+        add_custom_command(OUTPUT "${movie_output}"
+            COMMAND "${MOVIE_BASH}" "${HOST}/movie_kernels.sh" "${movie_input}" "${movie_output}"
+            DEPENDS "${movie_input}" "${HOST}/movie_kernels.sh" "${HOST}/movie_mmx.h"
+            VERBATIM)
+        list(REMOVE_ITEM GEN_SOURCES "${movie_input}")
+        list(APPEND GEN_SOURCES "${movie_output}")
+    endif()
     # the recompiled code without FMA, so its float results match the console's
     set_source_files_properties(${GEN_SOURCES} PROPERTIES COMPILE_OPTIONS
         "-O2;-w;-fno-strict-aliasing;-fsigned-char;-ffp-contract=off")

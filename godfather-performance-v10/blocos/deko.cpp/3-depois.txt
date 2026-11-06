@@ -1,0 +1,3 @@
+    fixed_bank_skips_ = 0;
+    LOGR("perf: skipped draw constants %.0f KiB/frame", double(dc_bytes_saved_) / 1024.0 / n);
+    dc_bytes_saved_ = 0;

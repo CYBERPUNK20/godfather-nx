@@ -1,0 +1,2 @@
+// The optional producer marks every write to State::simple with TouchSimple (or TouchAllState on reset).
+std::unique_ptr<Backend> CreateThreadedBackend(std::unique_ptr<Backend> inner, const State* marked_simple_source = nullptr);

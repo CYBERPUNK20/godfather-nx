@@ -1,0 +1,8 @@
+    std::vector<uint32_t> xo(w), yo(h), zo(z);
+    for (uint32_t x = 0; x < w; x++) xo[x] = Deposit(x, mx);
+    for (uint32_t y = 0; y < h; y++) yo[y] = Deposit(y, my);
+    for (uint32_t k = 0; k < z; k++) zo[k] = Deposit(k, mz);
+    for (uint32_t k = 0; k < z; k++)
+        for (uint32_t y = 0; y < h; y++)
+            for (uint32_t x = 0; x < w; x++) {
+                const uint8_t* p = src + size_t(xo[x] | yo[y] | zo[k]) * bpp;

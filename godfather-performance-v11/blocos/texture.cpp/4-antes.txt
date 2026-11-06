@@ -1,0 +1,2 @@
+        d.linear = !Format(d.format).swizzled && !Format(d.format).compressed;
+        d.pitch = d.width * Format(d.format).bits / 8;

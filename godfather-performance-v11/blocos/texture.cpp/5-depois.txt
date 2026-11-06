@@ -1,0 +1,6 @@
+    // Advance each axis within its Morton bits. Subtracting its mask and
+    // masking again carries into the next occupied bit (unsigned arithmetic).
+    for (uint32_t k = 0, zo = 0; k < z; ++k, zo = (zo - mz) & mz)
+        for (uint32_t y = 0, yo = 0; y < h; ++y, yo = (yo - my) & my)
+            for (uint32_t x = 0, xo = 0; x < w; ++x, xo = (xo - mx) & mx) {
+                const uint8_t* p = src + size_t(xo | yo | zo) * bpp;

@@ -1,0 +1,12 @@
+The Godfather NX | Desempenho v7
+Extrai a pasta godfather-performance-v7 para C:\GodfatherNX, sobre o projeto com a v6 instalada.
+No MSYS2:
+cd /c/GodfatherNX
+bash godfather-performance-v7/aplicar.sh && bash switch/build.sh
+Depois de uma compilacao bem-sucedida, copia build-switch/godfather.nro para a pasta habitual no SD. Guarda o NRO v6 para comparacao.
+O pacote altera switch/deko.cpp e sdk/runtime/gpu/render_thread.cpp.
+Nos desenhos com shaders fixos padrao, o renderer evita a reserva e copia do banco b0 de 3 KiB e os comandos para o ligar. Os shaders programaveis e as extensoes conservam o banco completo. O banco de transformacoes, luz e cor continua disponivel.
+Na thread do jogo, o caminho com state_tracking=false verifica blocos de 512 bytes e envia apenas as partes de 64 bytes alteradas. A comparacao e exata.
+Teste com as mesmas definicoes, o mesmo save e o mesmo modo portatil. Repete a perseguicao com os disparos e as tres explosoes. Sai normalmente e guarda o godfather.log. A linha 'fixed draws without vertex bank per frame' mostra quantos envios foram dispensados.
+Para repor os ficheiros v6 e recompilar:
+bash godfather-performance-v7/reverter.sh && bash switch/build.sh

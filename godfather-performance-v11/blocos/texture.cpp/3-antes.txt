@@ -1,0 +1,3 @@
+    for (auto& e : kFormats)
+        if (e.id == f) return e.info;
+    return kUnknown;

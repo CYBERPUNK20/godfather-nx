@@ -1,0 +1,85 @@
+GodfatherNX - desempenho v1 (VERTBATCH)
+5 de novembro de 2026
+
+INSTALAR (MSYS2, como os pacotes anteriores)
+
+Extrai este ZIP para C:\GodfatherNX. Deve existir:
+C:\GodfatherNX\godfather-performance-v1\aplicar.sh
+
+No MSYS2:
+
+cd /c/GodfatherNX
+bash godfather-performance-v1/aplicar.sh && bash switch/build.sh
+
+Quando a compilacao terminar com sucesso, copia o novo
+build-switch/godfather.nro para a pasta do jogo na Switch.
+Guarda o NRO anterior para comparacao. Mantem o TOML atual.
+Nao precisas de PowerShell nem de Python para instalar.
+
+O QUE MUDA
+
+Modifica apenas sdk/runtime/gpu/vertex.cpp, na funcao AssembleConverted:
+- Seleciona uma vez por atributo as conversoes dos formatos mais comuns,
+  permitindo ao compilador simplificar os ciclos e as copias.
+- Evita construir uma sequencia temporaria de indices nos desenhos que
+  ja usam um intervalo continuo de vertices. O caminho esparso mantem
+  a sequencia necessaria para reunir os vertices.
+
+Mantem a representacao float4 e a mesma lista final de indices.
+Nao altera shaders, sincronizacao, memoria da GPU, efeitos, resolucao,
+limitador de FPS ou XBE_RAW_VERTICES. Os contadores ainda mostram
+vertices "converted on the CPU"; compara o tempo "assemble", nao apenas
+o numero de draws convertidos.
+
+O instalador valida a funcao inteira antes de editar. Cria um backup em
+godfather-performance-v1-backup, preservando os restantes ficheiros.
+Se a tua funcao divergir da versao enviada, para sem modificar o codigo.
+
+O QUE O LOG MOSTROU
+
+Sessao de cerca de 52 minutos, sem FRAMECAP e terminada com Exit (0).
+314 amostras de desempenho; mediana de 30,4 FPS (o contador pode oscilar
+ligeiramente em torno dos 30). Nas ultimas cenas mais pesadas, a montagem
+de vertices ocupa cerca de 8-12 ms por fotograma no CPU, com centenas de
+draws convertidos. Por isso esta primeira alteracao ataca esse custo.
+
+A falha inicial ao reservar 4 MiB contiguos e seguida de uma reserva
+bem-sucedida de 2 MiB. O log nao mostra um crash por essa tentativa.
+Nao foi demonstrado que a GPU deva executar toda a rotina: ha formatos,
+indices e copias de dados a preparar antes dos shaders da GPU.
+
+VALIDACAO
+
+Compiladas as unidades vertex.cpp completas, antes e depois, em C++20
+com -O2 -Wall -Wextra -Werror. Testadas lado a lado com os mesmos dados.
+61 213 comparacoes passaram: vertices identicos byte a byte, mesmos
+indices e metadados; formatos, topologias, indices densos/esparsos,
+varios streams, strides implicitos e copias do render thread.
+AddressSanitizer e UndefinedBehaviorSanitizer sem erros nestes testes.
+
+Microteste no computador, 12 000 desenhos de 768 vertices, tres rondas:
+antes/depois: 272,58/173,14 ms; 239,25/165,62 ms; 203,35/161,41 ms.
+Estes valores medem uma rotina sintetica no CPU do ambiente de teste,
+nao FPS do jogo nem desempenho do ARM da Switch.
+
+Instalador testado com LF/CRLF, segunda aplicacao, backup e reversao
+byte a byte, versao incompatível, alteracoes posteriores e backup
+corrompido. Outros ficheiros permanecem intactos.
+
+Nao foi compilado um NRO completo nem testada esta alteracao numa Switch
+neste ambiente. A validacao final de imagem e desempenho e na consola.
+
+TESTAR NA SWITCH
+
+Joga 3-5 minutos no mesmo local/save que usaste antes, incluindo rua
+movimentada, combate, fogo e explosoes. Evita L3+R3 durante a medicao.
+Confirma personagens, menus, som e animacoes. Envia o novo godfather.log;
+vamos comparar os tempos de montagem/CPU/GPU e as quedas nas mesmas cenas.
+
+REVERTER APENAS ESTA OTIMIZACAO, SE PRECISARES
+
+cd /c/GodfatherNX
+bash godfather-performance-v1/reverter.sh && bash switch/build.sh
+
+O script restaura o vertex.cpp anterior. Recusa sobrescrever alteracoes
+feitas depois da instalacao ou restaurar um backup cujo hash mudou.
