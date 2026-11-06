@@ -1,3 +1,5 @@
+![The Godfather NX](./banner.jpg)
+
 # The Godfather for Nintendo Switch
 
 This project is a static recompilation port of *The Godfather* (original Xbox) for the Nintendo Switch, built upon the `street-nx` base project.
@@ -8,7 +10,7 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 
 ## 🎮 Current Status & Performance
 
-* **Status:** **PLAYABLE** on Nintendo Switch!
+* **Status:** **PLAYABLE**[cite: 3] on Nintendo Switch!
 
 * **Recompilation:** All x86 execution partitions generated, verified, and running smoothly.
 
@@ -38,7 +40,7 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 
 2. A legitimate dump of **The Godfather (USA / NTSC-U version)** for Original Xbox (extracted game data files).
 
-3. The compiled `godfather.nro` and `godfather-settings.toml` binaries from the [Releases](https://github.com/CYBERPUNK20/godfather-nx/releases) page.
+3. The compiled `godfather.nro` and `godfather-settings.toml` binaries from the [Releases](https://github.com/CYBERPUNK20/godfather-nx/releases) page[cite: 3].
 
 ### Installation & Launch
 
@@ -60,10 +62,10 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 
 ## 📜 Credits
 
-* **xsaja:** `street-nx` (base project)
+* **xsaja:** `street-nx` (base project)[cite: 3]
 
 Every license is in `LICENSES.txt`.
 
 ## ⚖️ Legal & Disclaimer
 
-*The Godfather* is a trademark of Electronic Arts. This project has no relation to Electronic Arts or Nintendo. It contains no game data; `godfather.nro` contains code translated from the player's own `default.xbe`. The code of `godfather-nx` is licensed under the GNU General Public License version 3 (`LICENSE`), as `street-nx`'s is.
+*The Godfather* is a trademark of Electronic Arts. This project has no relation to Electronic Arts or Nintendo. It contains no game data; `godfather.nro` contains code translated from the player's own `default.xbe`. The code of `godfather-nx` is licensed under the GNU General Public License version 3 (`LICENSE`), as `street-nx`'s is[cite: 3].
