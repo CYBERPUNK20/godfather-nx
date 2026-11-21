@@ -66,6 +66,12 @@ The target executable is the **North American (USA / NTSC-U)** original Xbox rel
 
 Every license is in `LICENSES.txt`.
 
+## ☕ Support
+
+ If you enjoy playing *The Godfather* natively on your Nintendo Switch and want to support future updates or new recompilation projects, feel free to buy me a coffee:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/cyberpunk20)
+
 ## ⚖️ Legal & Disclaimer
 
 *The Godfather* is a trademark of Electronic Arts. This project has no relation to Electronic Arts or Nintendo. It contains no game data; `godfather.nro` contains code translated from the player's own `default.xbe`. The code of `godfather-nx` is licensed under the GNU General Public License version 3 (`LICENSE`), as `street-nx`'s is[cite: 3].
